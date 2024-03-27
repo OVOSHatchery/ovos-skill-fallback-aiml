@@ -17,30 +17,23 @@ import os
 from os import listdir, remove as remove_file
 from os.path import dirname, isfile
 
-from mycroft.api import DeviceApi
-from mycroft.skills.core import FallbackSkill, intent_handler
-from adapt.intent import IntentBuilder
+from ovos_workshop.skills.fallback import FallbackSkill
+from ovos_workshop.decorators import intent_handler
+from ovos_workshop.intents import IntentBuilder
 
 
 class AimlFallback(FallbackSkill):
 
-    def __init__(self):
-        super(AimlFallback, self).__init__(name='AimlFallback')
+    def initialize(self):
         self.kernel = aiml.Kernel()
         self.aiml_path = os.path.join(dirname(__file__), 'aiml')
-        self.brain_path = os.path.join(self.file_system.path,
-                                       'bot_brain.brn')
+        self.brain_path = os.path.join(self.file_system.path, 'bot_brain.brn')
         # reloading skills will also reset this 'timer', so ideally it should
         # not be too high
         self.line_count = 1
-        self.save_loop_threshold = int(self.settings.get('save_loop_threshold',
-                                                         4))
-
+        self.save_loop_threshold = int(self.settings.get('save_loop_threshold',  4))
         self.brain_loaded = False
-
-    def initialize(self):
         self.register_fallback(self.handle_fallback, 90)
-        return
 
     def load_brain(self):
         """Set up the aiml engine using available device information."""
@@ -52,13 +45,10 @@ class AimlFallback(FallbackSkill):
             for aiml_file in aimls:
                 self.kernel.learn(os.path.join(self.aiml_path, aiml_file))
             self.kernel.saveBrain(self.brain_path)
-        try:
-            device = DeviceApi().get()
-        except Exception:
-            device = {
-                "name": "Mycroft",
-                "platform": "AI"
-            }
+        device = {
+            "name": "Mycroft",
+            "platform": "AI"
+        }
         self.kernel.setBotPredicate("name", device["name"])
         self.kernel.setBotPredicate("species", device["platform"])
         self.kernel.setBotPredicate("genus", "Mycroft")
@@ -74,7 +64,6 @@ class AimlFallback(FallbackSkill):
         self.kernel.setBotPredicate("age", "2")
 
         self.brain_loaded = True
-        return
 
     @intent_handler(IntentBuilder("ResetMemoryIntent").require("Reset")
                                                       .require("Memory"))
@@ -85,7 +74,6 @@ class AimlFallback(FallbackSkill):
         self.speak_dialog("reset.memory")
         remove_file(self.brain_path)
         self.soft_reset_brain()
-        return
 
     def ask_brain(self, utterance):
         """Send a query to the AIML brain.
@@ -97,14 +85,12 @@ class AimlFallback(FallbackSkill):
         if (self.line_count % self.save_loop_threshold) == 0:
             self.kernel.saveBrain(self.brain_path)
         self.line_count += 1
-
         return response
 
     def soft_reset_brain(self):
         # Only reset the active kernel memory
         self.kernel.resetBrain()
         self.brain_loaded = False
-        return
 
     def handle_fallback(self, message):
         """Mycroft fallback handler interfacing the AIML.
@@ -131,8 +117,5 @@ class AimlFallback(FallbackSkill):
             self.kernel.saveBrain(self.brain_path)
             self.kernel.resetBrain()  # Manual remove
         self.remove_fallback(self.handle_fallback)
-        super(AimlFallback, self).shutdown()
+        super().shutdown()
 
-
-def create_skill():
-    return AimlFallback()
